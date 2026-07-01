@@ -1,10 +1,11 @@
 class Task:
-    def __init__(self, id, title, completed=False, parent_id=None, children_ids=None):
+    def __init__(self, id, title, completed=False, parent_id=None, children_ids=None, project=""):
         self.id = id
         self.title = title
         self.completed = completed
         self.parent_id = parent_id
         self.children_ids = children_ids if children_ids is not None else []
+        self.project = project
 
         # References to other Task objects (reconstructed on load)
         self.parent = None
@@ -57,5 +58,6 @@ class Task:
             "title": self.title,
             "completed": self.completed,
             "parent_id": self.parent_id,
-            "children_ids": self.children_ids
+            "children_ids": self.children_ids,
+            "project": self.project
         }

@@ -4,7 +4,22 @@ import os
 # Set ESCDELAY to make ESC key responsive in curses
 os.environ.setdefault('ESCDELAY', '25')
 
+# Curated palette of (fg, bg) terminal color pairs for projects.
+# These use curses extended color IDs (pair IDs starting at 10).
+_PROJECT_COLOR_DEFS = [
+    (curses.COLOR_MAGENTA, -1),
+    (curses.COLOR_BLUE, -1),
+    (curses.COLOR_YELLOW, -1),
+    (curses.COLOR_RED, -1),
+    (curses.COLOR_GREEN, -1),
+    (curses.COLOR_CYAN, -1),
+    (curses.COLOR_WHITE, -1),
+]
+
 class TerminalUI:
+    # Starting color pair ID for project colors (1-6 are reserved for the UI)
+    _PROJECT_PAIR_START = 10
+
     def __init__(self, manager):
         self.manager = manager
         self.focus_node = None       # Task (or None for root level)
@@ -13,6 +28,10 @@ class TerminalUI:
         self.active_scroll_y = 0
         # Scroll offset for Right Panel (subtask preview)
         self.preview_scroll_y = 0
+
+        # Project color mapping: project_name -> curses color pair id
+        self._project_color_map = {}
+        self._next_project_pair_idx = 0
 
         # Windows
         self.stdscr = None
@@ -39,7 +58,10 @@ class TerminalUI:
             curses.init_pair(3, curses.COLOR_GREEN, -1)   # Completed
             curses.init_pair(4, curses.COLOR_YELLOW, -1)  # Focus / Highlight
             curses.init_pair(5, curses.COLOR_RED, -1)     # Accents/Incomplete
-            curses.init_pair(6, curses.COLOR_CYAN, -1)  # Borders
+            curses.init_pair(6, curses.COLOR_WHITE, -1)  # Borders
+            # Initialize project color pairs
+            for i, (fg, bg) in enumerate(_PROJECT_COLOR_DEFS):
+                curses.init_pair(self._PROJECT_PAIR_START + i, fg, bg)
 
         # Load initial state
         self.manager.load()
@@ -52,6 +74,13 @@ class TerminalUI:
 
             if ch in (ord('q'), ord('Q')):
                 break
+
+            elif ch in (ord('p'), ord('P')):
+                if self.selected_task:
+                    project = self._prompt_input("Enter project name", "Project name:")
+                    if project:
+                        self.selected_task.project = project
+                        self.manager.save()
 
             elif ch in (ord('r'), ord('R')):
                 if self.selected_task:
@@ -163,26 +192,27 @@ class TerminalUI:
 
     def _move_selection(self, direction):
         if self.focus_node is None:
-            # Navigating roots
-            if not self.manager.roots:
+            # Navigating roots (sorted by project)
+            items = self._sort_by_project(self.manager.roots)
+            if not items:
                 return
             try:
-                curr_idx = self.manager.roots.index(self.selected_task)
+                curr_idx = items.index(self.selected_task)
             except ValueError:
                 curr_idx = 0
-            new_idx = (curr_idx + direction) % len(self.manager.roots)
-            self.selected_task = self.manager.roots[new_idx]
+            new_idx = (curr_idx + direction) % len(items)
+            self.selected_task = items[new_idx]
         else:
-            # Navigating active branch children
-            children = self.focus_node.children
-            if not children:
+            # Navigating active branch children (sorted by project)
+            items = self._sort_by_project(self.focus_node.children)
+            if not items:
                 return
             try:
-                curr_idx = children.index(self.selected_task)
+                curr_idx = items.index(self.selected_task)
             except ValueError:
                 curr_idx = 0
-            new_idx = (curr_idx + direction) % len(children)
-            self.selected_task = children[new_idx]
+            new_idx = (curr_idx + direction) % len(items)
+            self.selected_task = items[new_idx]
 
     def _resize_and_draw(self):
         h, w = self.stdscr.getmaxyx()
@@ -259,6 +289,20 @@ class TerminalUI:
 
         win.noutrefresh()
 
+    def _get_project_color_pair(self, project_name):
+        """Returns the curses color pair ID for a given project name."""
+        if not project_name:
+            return curses.color_pair(1)  # default white
+        if project_name not in self._project_color_map:
+            idx = self._next_project_pair_idx % len(_PROJECT_COLOR_DEFS)
+            self._project_color_map[project_name] = self._PROJECT_PAIR_START + idx
+            self._next_project_pair_idx += 1
+        return curses.color_pair(self._project_color_map[project_name])
+
+    def _sort_by_project(self, items):
+        """Sorts tasks by project name (empty-project tasks go last), preserving insertion order within groups."""
+        return sorted(items, key=lambda t: (t.project == "", t.project.lower()))
+
     def _draw_current_level(self):
         win = self.header_win
         win.erase()
@@ -267,10 +311,10 @@ class TerminalUI:
         # Draw Header
         if self.focus_node is None:
             title_text = "ROOT TASKS"
-            items = self.manager.roots
+            items = self._sort_by_project(self.manager.roots)
         else:
             title_text = f"TASKS UNDER: {self.focus_node.title.upper()}"
-            items = self.focus_node.children
+            items = self._sort_by_project(self.focus_node.children)
 
         win.addstr(0, 2, title_text, curses.color_pair(2) | curses.A_BOLD)
         win.hline(1, 2, curses.ACS_HLINE, w - 4, curses.color_pair(6))
@@ -294,6 +338,7 @@ class TerminalUI:
         elif selected_idx >= self.active_scroll_y + visible_h:
             self.active_scroll_y = selected_idx - visible_h + 1
 
+        prev_project = None
         for i in range(visible_h):
             idx = self.active_scroll_y + i
             if idx >= len(items):
@@ -305,6 +350,8 @@ class TerminalUI:
 
             # Show navigation folder indicator if task has children
             branch_indicator = " ↳" if not item.is_leaf() else ""
+
+            # Build the main task text (without project tag)
             text = f"{status} {item.title}{branch_indicator}"
 
             if len(text) > w - 6:
@@ -318,8 +365,22 @@ class TerminalUI:
             if is_sel:
                 win.addstr(y, 1, ">", curses.color_pair(4) | curses.A_BOLD)
                 win.addstr(y, 3, text, attr | curses.A_REVERSE | curses.A_BOLD)
+                # Draw colored project tag right-aligned
+                if item.project:
+                    tag = f"[{item.project}]"
+                    tag_x = w - len(tag) - 1
+                    if tag_x > 3 + len(text):
+                        proj_attr = self._get_project_color_pair(item.project)
+                        win.addstr(y, tag_x, tag, proj_attr | curses.A_BOLD | curses.A_REVERSE)
             else:
                 win.addstr(y, 3, text, attr)
+                # Draw colored project tag right-aligned
+                if item.project:
+                    tag = f"[{item.project}]"
+                    tag_x = w - len(tag) - 1
+                    if tag_x > 3 + len(text):
+                        proj_attr = self._get_project_color_pair(item.project)
+                        win.addstr(y, tag_x, tag, proj_attr | curses.A_BOLD)
 
         win.noutrefresh()
 
@@ -401,6 +462,12 @@ class TerminalUI:
         win.addstr(3, 2, "Status: ", curses.color_pair(1) | curses.A_BOLD)
         win.addstr(3, 10, status_str, status_color | curses.A_BOLD)
 
+        # Project with color
+        proj_label_x = 10 + len(status_str) + 2
+        if task.project and proj_label_x + len(task.project) + 4 < w:
+            proj_attr = self._get_project_color_pair(task.project)
+            win.addstr(3, proj_label_x, f"[{task.project}]", proj_attr | curses.A_BOLD)
+
         # Breadcrumb path
         path = []
         curr = task
@@ -422,7 +489,7 @@ class TerminalUI:
         win.erase()
         h, w = win.getmaxyx()
 
-        shortcuts = "[A] Add Task  [B] Divide/Branch  [R] Rename Task [Space] Complete/Toggle  [Esc/←] Zoom Out  [Enter/→] Zoom In  [D/Del] Delete  [Q] Quit"
+        shortcuts = "[A] Add  [B] Branch  [P] Project  [R] Rename  [Space] Toggle  [Esc/←] Out  [Enter/→] In  [D] Del  [Q] Quit"
         if len(shortcuts) < w:
             win.addstr(0, (w - len(shortcuts)) // 2, shortcuts,
                        curses.color_pair(2) | curses.A_REVERSE)

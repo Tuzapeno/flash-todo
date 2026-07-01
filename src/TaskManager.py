@@ -2,7 +2,7 @@ import json
 import uuid
 import os
 
-import task as Task
+from .Task import Task
 
 class TaskManager:
     def __init__(self, filepath=None):
@@ -44,7 +44,8 @@ class TaskManager:
                 title=item["title"],
                 completed=item.get("completed", False),
                 parent_id=item.get("parent_id"),
-                children_ids=item.get("children_ids", [])
+                children_ids=item.get("children_ids", []),
+                project=item.get("project", "")
             )
             self.tasks[task.id] = task
 
