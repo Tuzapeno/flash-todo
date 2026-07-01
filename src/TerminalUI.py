@@ -1,5 +1,6 @@
 import curses
 import os
+import re
 
 # Set ESCDELAY to make ESC key responsive in curses
 os.environ.setdefault('ESCDELAY', '25')
@@ -98,15 +99,23 @@ class TerminalUI:
                     title = self._prompt_input(
                         "ADD NEW TASK", "Enter task title:")
                     if title:
+                        title, project = self._parse_title_project(title)
                         task = self.manager.add_root_task(title)
+                        if project:
+                            task.project = project
+                            self.manager.save()
                         if not self.selected_task:
                             self.selected_task = task
                 else:
                     title = self._prompt_input(
                         "ADD BRANCH", f"Add branch to '{self.focus_node.title}':")
                     if title:
+                        title, project = self._parse_title_project(title)
                         child = self.manager.add_child_task(
                             self.focus_node.id, title)
+                        if project:
+                            child.project = project
+                            self.manager.save()
                         self.selected_task = child
 
             elif ch in (ord('b'), ord('B')):
@@ -120,8 +129,12 @@ class TerminalUI:
                     title = self._prompt_input(
                         "ADD BRANCH", f"Enter branch title: ")
                     if title:
+                        title, project = self._parse_title_project(title)
                         child = self.manager.add_child_task(
                             self.selected_task.id, title)
+                        if project:
+                            child.project = project
+                            self.manager.save()
                         # Zoom in to the newly branched task
                         self.focus_node = self.selected_task
                         self.selected_task = child
@@ -288,6 +301,16 @@ class TerminalUI:
         win.hline(1, 0, curses.ACS_HLINE, w, curses.color_pair(6))
 
         win.noutrefresh()
+
+    @staticmethod
+    def _parse_title_project(raw_title):
+        """Extracts an @project tag from the title. Returns (clean_title, project_or_None)."""
+        match = re.search(r'\s@(\S+)', raw_title)
+        if match:
+            project = match.group(1)
+            clean = raw_title[:match.start()] + raw_title[match.end():]
+            return clean.strip(), project
+        return raw_title, None
 
     def _get_project_color_pair(self, project_name):
         """Returns the curses color pair ID for a given project name."""
