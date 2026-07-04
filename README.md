@@ -1,6 +1,6 @@
 # ⚡ Flash Todo
 
-TODO: Add image
+<img width="1710" height="1046" alt="image" src="https://github.com/user-attachments/assets/b8f54d08-5d56-4fd1-b610-f5377cdaba52" />
 
 A minimal terminal task manager built to keep me on track when solving complex problems.
 
