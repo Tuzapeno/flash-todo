@@ -156,3 +156,21 @@ class TaskManager:
                 self.roots.remove(task)
 
         self.save()
+
+    def clear_completed_roots(self):
+        to_remove = [t for t in self.roots if t.completed]
+        if not to_remove:
+            return 0
+
+        def recurse_delete(node):
+            for child in node.children:
+                recurse_delete(child)
+            if node.id in self.tasks:
+                del self.tasks[node.id]
+
+        for task in to_remove:
+            recurse_delete(task)
+            self.roots.remove(task)
+
+        self.save()
+        return len(to_remove)

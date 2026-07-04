@@ -203,6 +203,28 @@ class TerminalUI:
                             self.focus_node = None
                             self.selected_task = self.manager.roots[0] if self.manager.roots else None
 
+            elif ch in (ord('c'), ord('C')):
+                # Clear all completed root tasks
+                if self.focus_node is not None:
+                    self._show_message(
+                        "INFO", "Clear completed only works at the root level.")
+                    continue
+
+                completed_count = sum(1 for t in self.manager.roots if t.completed)
+                if completed_count == 0:
+                    self._show_message(
+                        "INFO", "No completed root tasks to clear.")
+                    continue
+
+                if self._prompt_confirm(f"Clear {completed_count} done? Y/N"):
+                    self.manager.clear_completed_roots()
+                    # Re-select after clearing
+                    if self.manager.roots:
+                        self.selected_task = self._sort_by_project(self.manager.roots)[0]
+                    else:
+                        self.selected_task = None
+
+
     def _move_selection(self, direction):
         if self.focus_node is None:
             # Navigating roots (sorted by project)
@@ -538,7 +560,7 @@ class TerminalUI:
         win.erase()
         h, w = win.getmaxyx()
 
-        shortcuts = "[A] Add  [B] Branch  [P] Project  [R] Rename  [Space] Toggle  [Esc/←] Out  [Enter/→] In  [D] Del  [Q] Quit"
+        shortcuts = "[A] Add  [B] Branch  [P] Project  [R] Rename  [Space] Toggle  [C] Clear  [Esc/←] Out  [Enter/→] In  [D] Del  [Q] Quit"
         if len(shortcuts) < w:
             win.addstr(0, (w - len(shortcuts)) // 2, shortcuts,
                        curses.color_pair(2) | curses.A_REVERSE)

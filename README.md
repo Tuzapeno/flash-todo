@@ -37,6 +37,7 @@ fix auth bug @backend
 | `↑` / `K` | Move selection up |
 | `↓` / `J` | Move selection down |
 | `D` / `Delete` | Delete a task and all its branches |
+| `C` | Clear all completed root tasks |
 | `Q` | Quit |
 
 # Instalation and Usage
