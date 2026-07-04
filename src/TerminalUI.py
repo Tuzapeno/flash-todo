@@ -231,46 +231,72 @@ class TerminalUI:
         h, w = self.stdscr.getmaxyx()
         self.stdscr.erase()
 
-        if h < 20 or w < 70:
+        if h < 10 or w < 40:
             self.stdscr.addstr(0, 0, "Terminal window too small.",
                                curses.color_pair(5) | curses.A_BOLD)
             self.stdscr.addstr(
-                1, 0, "Please resize to at least 70x20.", curses.color_pair(1))
+                1, 0, "Please resize to at least 40x10.", curses.color_pair(1))
             self.stdscr.refresh()
             return
 
+        # Determine if we should use compact (single-panel) mode
+        compact = (w < 100 or h < 25)
+
         # Setup windows dynamically
         header_h = 3
-        footer_h = 1
-        details_h = 5
-        main_h = h - header_h - footer_h - details_h
 
-        left_w = w // 2 - 1
-        right_w = w - left_w - 2
+        if compact:
+            # Compact mode: no footer, no right panel
+            footer_h = 0
+            details_h = 5
+            main_h = h - header_h - details_h
 
-        self.header_win = curses.newwin(main_h, left_w, header_h, 0)
-        self.right_win = curses.newwin(main_h, right_w, header_h, left_w + 2)
-        self.header_win_border = curses.newwin(
-            header_h, w, 0, 0)  # header panel
-        self.details_win = curses.newwin(details_h, w, header_h + main_h, 0)
-        self.footer_win = curses.newwin(footer_h, w, h - 1, 0)
+            self.header_win = curses.newwin(main_h, w, header_h, 0)
+            self.right_win = None
+            self.header_win_border = curses.newwin(header_h, w, 0, 0)
+            self.details_win = curses.newwin(details_h, w, header_h + main_h, 0)
+            self.footer_win = None
 
-        # Draw vertical separator in stdscr
-        for y in range(header_h, header_h + main_h):
-            self.stdscr.addch(y, left_w, curses.ACS_VLINE,
-                              curses.color_pair(6))
-            self.stdscr.addch(y, left_w + 1, ' ')
+            # Horizontal separator
+            self.stdscr.hline(header_h + main_h, 0,
+                              curses.ACS_HLINE, w, curses.color_pair(6))
+            self.stdscr.refresh()
 
-        # Horizontal separator
-        self.stdscr.hline(header_h + main_h, 0,
-                          curses.ACS_HLINE, w, curses.color_pair(6))
-        self.stdscr.refresh()
+            self._draw_header()
+            self._draw_current_level()
+            self._draw_details()
 
-        self._draw_header()
-        self._draw_current_level()
-        self._draw_subtasks_preview()
-        self._draw_details()
-        self._draw_footer()
+        else:
+            # Full two-panel mode
+            footer_h = 1
+            details_h = 5
+            main_h = h - header_h - footer_h - details_h
+
+            left_w = w // 2 - 1
+            right_w = w - left_w - 2
+
+            self.header_win = curses.newwin(main_h, left_w, header_h, 0)
+            self.right_win = curses.newwin(main_h, right_w, header_h, left_w + 2)
+            self.header_win_border = curses.newwin(header_h, w, 0, 0)
+            self.details_win = curses.newwin(details_h, w, header_h + main_h, 0)
+            self.footer_win = curses.newwin(footer_h, w, h - 1, 0)
+
+            # Draw vertical separator in stdscr
+            for y in range(header_h, header_h + main_h):
+                self.stdscr.addch(y, left_w, curses.ACS_VLINE,
+                                  curses.color_pair(6))
+                self.stdscr.addch(y, left_w + 1, ' ')
+
+            # Horizontal separator
+            self.stdscr.hline(header_h + main_h, 0,
+                              curses.ACS_HLINE, w, curses.color_pair(6))
+            self.stdscr.refresh()
+
+            self._draw_header()
+            self._draw_current_level()
+            self._draw_subtasks_preview()
+            self._draw_details()
+            self._draw_footer()
 
         curses.doupdate()
 
