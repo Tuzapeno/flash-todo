@@ -1,7 +1,10 @@
 from src.TaskManager import TaskManager
 from src.TerminalUI import TerminalUI
 
-if __name__ == "__main__":
+def main():
     manager = TaskManager()
     ui = TerminalUI(manager)
     ui.run()
+
+if __name__ == "__main__":
+    main()

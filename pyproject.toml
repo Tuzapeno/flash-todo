@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flash-todo"
+version = "0.1.0"
+description = "Short-term task management TUI"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+flash-todo = "flash_todo:main"
+
+[tool.setuptools]
+py-modules = ["flash_todo"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
