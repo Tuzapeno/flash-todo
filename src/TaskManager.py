@@ -157,6 +157,47 @@ class TaskManager:
 
         self.save()
 
+    def duplicate_task(self, task_id):
+        original = self.tasks.get(task_id)
+        if not original:
+            return None
+
+        def _clone_subtree(node, new_parent_id):
+            new_id = str(uuid.uuid4())
+            clone = Task(
+                id=new_id,
+                title=node.title,
+                completed=node.completed,
+                parent_id=new_parent_id,
+                children_ids=[],
+                project=node.project
+            )
+            self.tasks[new_id] = clone
+
+            for child in node.children:
+                child_clone = _clone_subtree(child, new_id)
+                clone.children.append(child_clone)
+                clone.children_ids.append(child_clone.id)
+                child_clone.parent = clone
+
+            return clone
+
+        # Clone the entire subtree
+        copy = _clone_subtree(original, original.parent_id)
+        copy.title = original.title + "-copy"
+
+        # Insert the copy as a sibling
+        if original.parent:
+            parent = original.parent
+            copy.parent = parent
+            parent.children.append(copy)
+            parent.children_ids.append(copy.id)
+        else:
+            self.roots.append(copy)
+
+        self.save()
+        return copy
+
     def clear_completed_roots(self):
         to_remove = [t for t in self.roots if t.completed]
         if not to_remove:

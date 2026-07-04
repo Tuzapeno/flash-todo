@@ -203,6 +203,13 @@ class TerminalUI:
                             self.focus_node = None
                             self.selected_task = self.manager.roots[0] if self.manager.roots else None
 
+            elif ch in (ord('y'), ord('Y')):
+                # Duplicate task
+                if self.selected_task:
+                    copy = self.manager.duplicate_task(self.selected_task.id)
+                    if copy:
+                        self.selected_task = copy
+
             elif ch in (ord('c'), ord('C')):
                 # Clear all completed root tasks
                 if self.focus_node is not None:
@@ -560,7 +567,7 @@ class TerminalUI:
         win.erase()
         h, w = win.getmaxyx()
 
-        shortcuts = "[A] Add  [B] Branch  [P] Project  [R] Rename  [Space] Toggle  [C] Clear  [Esc/←] Out  [Enter/→] In  [D] Del  [Q] Quit"
+        shortcuts = "[A] Add  [B] Branch  [Y] Dup  [P] Project  [R] Rename  [Space] Toggle  [C] Clear  [Esc/←] Out  [Enter/→] In  [D] Del  [Q] Quit"
         if len(shortcuts) < w:
             win.addstr(0, (w - len(shortcuts)) // 2, shortcuts,
                        curses.color_pair(2) | curses.A_REVERSE)
