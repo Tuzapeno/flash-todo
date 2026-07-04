@@ -39,6 +39,11 @@ fix auth bug @backend
 | `D` / `Delete` | Delete a task and all its branches |
 | `Q` | Quit |
 
-## TODO: Add usage
+# Instalation and Usage
+
+```bash
+pipx install flash-todo
+flash-todo
+```
 
 Tasks are saved to `~/.branch_tasks/tasks.json`.
